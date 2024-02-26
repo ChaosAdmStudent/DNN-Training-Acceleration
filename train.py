@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np 
 import torchvision.models as models  
 from preprocess import get_data 
-from torchsummary import summary
 
 def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
     valid_models = ['vgg16', 'inception-v3']  
@@ -91,6 +90,5 @@ if __name__ == '__main__':
     # print(model)
 
     model = models.inception_v3() 
-    summary(model, (3,299,299))
     
 
