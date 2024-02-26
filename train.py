@@ -5,10 +5,8 @@ import numpy as np
 import torchvision.models as models  
 from preprocess import get_data 
 
-def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
+def get_pretrained_model(model:str): 
     valid_models = ['vgg16', 'inception-v3']  
-
-    model_name = model 
 
     # Make sure CUDA is there, otherwise this wont be working anyways 
     assert torch.cuda.is_available() 
@@ -17,7 +15,7 @@ def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momen
     if not model in valid_models:
         print(f'Valid model options: {valid_models}')
         return None 
-    
+
     if model == 'vgg16': 
         model = models.vgg16(weights='VGG16_Weights.IMAGENET1K_V1') 
         in_features = model.classifier[6].in_features 
@@ -27,7 +25,7 @@ def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momen
             param.requires_grad = False 
 
         model.classifier[6] = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
-        model.to(device) 
+        model.to(device)   
 
     elif model == 'inception-v3': 
         model = models.inception_v3(weights='Inception_V3_Weights.IMAGENET1K_V1')   
@@ -38,9 +36,20 @@ def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momen
             param.requires_grad = False 
 
         model.fc = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
-        model.to(device) 
+        model.to(device)
+    
+    return model 
 
 
+def train(model:str, train_loader,print_every_n, dp=False, mp =False,num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
+    
+    model_name = model  
+
+    assert torch.cuda.is_available() 
+    device = torch.device('cuda') 
+    print(f'There are {torch.cuda.device_count()} GPUs available!')
+
+    model = get_pretrained_model(model) 
     loss = nn.CrossEntropyLoss() 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
 
@@ -84,11 +93,8 @@ def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momen
 
 
 if __name__ == '__main__':  
-    # batch_size = 20 
-    # train_loader = get_data(batch_size=batch_size, train=True, download=True) 
-    # model = train('inception-v3', train_loader, num_epochs=1, print_every_n=10)  
-    # print(model)
-
-    model = models.inception_v3() 
+    batch_size = 20 
+    train_loader = get_data(batch_size=batch_size, train=True, download=True) 
+    model = train('inception-v3', train_loader, num_epochs=1, print_every_n=10)  
     
 
