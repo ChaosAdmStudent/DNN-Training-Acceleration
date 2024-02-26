@@ -78,7 +78,7 @@ def train(model:str, train_loader,print_every_n, num_epochs=5, lr = 0.001, momen
     print('Training complete!')
     
     if model_save: 
-        torch.save(model.state_dict(), f'model_{model_name}.pth')
+        torch.save(model.state_dict(), f'../model_{model_name}.pth')
     
     return model 
 
