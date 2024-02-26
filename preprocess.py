@@ -25,7 +25,7 @@ def get_data(batch_size:int, train:bool, download=True):
     ])
 
     dataset = torchvision.datasets.CIFAR10(
-        root= './data', train = train,
+        root= '../data', train = train,
         download =download, transform = transform
     )
     
