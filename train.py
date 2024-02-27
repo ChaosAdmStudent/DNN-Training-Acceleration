@@ -63,17 +63,20 @@ def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, m
     setup(rank, world_size)  
     device = torch.device(f'cuda:{rank}')
     print(f'Running DDP on machine {rank} device {device}') 
+    device = torch.device(f'cuda:{rank}')
+    print(f'Running DDP on machine {rank} device {device}') 
 
     # Get the dataloader  
     train_loader = get_dataloader(batch_size, train=True, is_dist=True, rank=rank, world_size=world_size)
 
     # Move model to the GPU managed by the process 
-    model.to(rank)   
+    model.to(device)   
 
     # Wrap model in DDP 
     model = DDP(model, device_ids=[rank])
 
     # Train the model     
+     
     loss = nn.CrossEntropyLoss() 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
 
