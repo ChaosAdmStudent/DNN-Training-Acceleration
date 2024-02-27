@@ -6,7 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-import torchvision.transforms as transforms  
+import torchvision.transforms as transforms   
+import torchvision.models as models
 from torch.utils.data.distributed import DistributedSampler  
 from torch.utils.data import DataLoader
 
@@ -49,6 +50,41 @@ def get_dataloader(batch_size, train:bool, is_dist:bool, rank=None, world_size =
     print('---------------')
 
     return loader 
+
+def get_pretrained_model(model:str): 
+    valid_models = ['vgg16', 'inception-v3']  
+
+    # Make sure CUDA is there, otherwise this wont be working anyways 
+    assert torch.cuda.is_available() 
+    device = torch.device('cuda')
+
+    if not model in valid_models:
+        print(f'Valid model options: {valid_models}')
+        return None 
+
+    if model == 'vgg16': 
+        model = models.vgg16(weights='VGG16_Weights.IMAGENET1K_V1') 
+        in_features = model.classifier[6].in_features 
+        out_features = 10 
+
+        for param in model.parameters():
+            param.requires_grad = False 
+
+        model.classifier[6] = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
+        model.to(device)   
+
+    elif model == 'inception-v3': 
+        model = models.inception_v3(weights='Inception_V3_Weights.IMAGENET1K_V1')   
+        in_features = model.fc.in_features 
+        out_features = 10 
+
+        for param in model.parameters():
+            param.requires_grad = False 
+
+        model.fc = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
+        model.to(device)
+    
+    return model 
 
 
 

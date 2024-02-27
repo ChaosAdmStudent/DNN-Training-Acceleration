@@ -6,45 +6,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp 
 import numpy as np 
 import torchvision.models as models  
-from preprocess import get_dataloader  
+from preprocess import get_dataloader , get_pretrained_model
 import time  
 import argparse  
 import os 
-
-def get_pretrained_model(model:str): 
-    valid_models = ['vgg16', 'inception-v3']  
-
-    # Make sure CUDA is there, otherwise this wont be working anyways 
-    assert torch.cuda.is_available() 
-    device = torch.device('cuda')
-
-    if not model in valid_models:
-        print(f'Valid model options: {valid_models}')
-        return None 
-
-    if model == 'vgg16': 
-        model = models.vgg16(weights='VGG16_Weights.IMAGENET1K_V1') 
-        in_features = model.classifier[6].in_features 
-        out_features = 10 
-
-        for param in model.parameters():
-            param.requires_grad = False 
-
-        model.classifier[6] = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
-        model.to(device)   
-
-    elif model == 'inception-v3': 
-        model = models.inception_v3(weights='Inception_V3_Weights.IMAGENET1K_V1')   
-        in_features = model.fc.in_features 
-        out_features = 10 
-
-        for param in model.parameters():
-            param.requires_grad = False 
-
-        model.fc = nn.Linear(in_features=in_features, out_features=out_features, bias=True) 
-        model.to(device)
-    
-    return model 
 
 def setup(rank, world_size): 
     '''
@@ -133,7 +98,7 @@ def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, m
 
     return model 
      
-def train(model, model_name:str, batch_size ,print_every_n,num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
+def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool = False, num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
     
     assert torch.cuda.is_available(), "DNN Acceleration not possible on CPU"
     device = torch.device('cuda') 
@@ -155,9 +120,11 @@ def train(model, model_name:str, batch_size ,print_every_n,num_epochs=5, lr = 0.
     for i in range(1,num_epochs+1): 
         batch_start = time.time() 
         print_epoch = False 
-        for j, (features, targets) in enumerate(train_loader):  
-            features = features.to(device) 
-            targets = targets.to(device)
+        for j, (features, targets) in enumerate(train_loader):   
+            if not model_parallel:
+                features = features.to(device) 
+                targets = targets.to(device)
+                
             y_pred = model(features) 
 
             if model_name == 'inception-v3': 
@@ -193,7 +160,6 @@ def train(model, model_name:str, batch_size ,print_every_n,num_epochs=5, lr = 0.
         torch.save(model.state_dict(), f'../model_{model_name}.pth')
     
     return model 
-
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
