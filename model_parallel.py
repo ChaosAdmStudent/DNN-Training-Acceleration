@@ -20,7 +20,6 @@ class ModelParallelVGG16_4GPU(nn.Module):
     def forward(self, x): 
         if self.debugging: 
             return self.forward_debug(x) 
-        
         else: 
             return self.forward_normal(x) 
 
