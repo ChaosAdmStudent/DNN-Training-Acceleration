@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F  
 import torch.distributed as dist  
-from torch.nn.parallel import DistributedDataParallel as DPP 
+from torch.nn.parallel import DistributedDataParallel as DDP 
 import torch.multiprocessing as mp 
 import numpy as np 
 import torchvision.models as models  
@@ -59,9 +59,10 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()   
 
-def ddp_train(rank, world_size, model, batch_size, num_epochs, lr, momentum, print_every_n): 
-    print(f'Running DDP on machine {rank}')  
+def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n):  
     setup(rank, world_size)  
+    device = torch.device(f'cuda:{rank}')
+    print(f'Running DDP on machine {rank} device {device}') 
 
     # Get the dataloader  
     train_loader = get_dataloader(batch_size, train=True, is_dist=True, rank=rank, world_size=world_size)
@@ -70,10 +71,9 @@ def ddp_train(rank, world_size, model, batch_size, num_epochs, lr, momentum, pri
     model.to(rank)   
 
     # Wrap model in DDP 
-    model = DPP(model, device_ids=[rank])
+    model = DDP(model, device_ids=[rank])
 
     # Train the model     
-    device = torch.device('cuda') 
     loss = nn.CrossEntropyLoss() 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
 
@@ -223,7 +223,7 @@ if __name__ == '__main__':
     model_name = 'inception-v3' 
     model = get_pretrained_model(model_name)
     
-    if torch.cuda.device_count() >= 1:  
+    if torch.cuda.device_count() > 1:  
         print(f'Using {torch.cuda.device_count()} GPUs') 
         
         # Using DataParallel  
@@ -233,12 +233,13 @@ if __name__ == '__main__':
             model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=10) 
 
         # Using DistributedDataParallel 
+        if args.mode == 'ddp':
             print('Using DistributedDataParallel') 
             world_size = torch.cuda.device_count()  
             mp.spawn(
                 ddp_train, 
-                args = (world_size, model, batch_size, num_epochs, lr, momentum, print_every_n), 
-                n_procs = world_size, 
+                args = (world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n), 
+                nprocs = world_size, 
                 join=True
-            )
+            )   
     
