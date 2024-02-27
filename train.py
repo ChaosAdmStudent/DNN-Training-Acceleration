@@ -239,12 +239,15 @@ if __name__ == '__main__':
 
         # Using DistributedDataParallel 
         if args.mode == 'ddp':
-            print('Using DistributedDataParallel') 
+            print('Using DistributedDataParallel\n')  
+            exec_start = time.time() 
             world_size = torch.cuda.device_count()  
             mp.spawn(
                 ddp_train, 
                 args = (world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n), 
                 nprocs = world_size, 
                 join=True
-            )   
+            )    
+            print('---------------')
+            print(f'Total execution time: {time.time() - exec_start} seconds')
     
