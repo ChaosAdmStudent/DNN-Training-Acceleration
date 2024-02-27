@@ -83,7 +83,7 @@ def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, m
     n_correct = 0  
     n_samples = 0 
     
-    print('Starting training!') 
+    print(f'---------------\nStarting training node {rank}!') 
     
     epoch_start = time.time() 
     for i in range(1,num_epochs+1):   
@@ -121,10 +121,12 @@ def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, m
         total_time.update(time.time() - epoch_start) 
         epoch_start = time.time() 
 
-    cleanup()
+    
     print(f'Training completed by node: {rank}!') 
     print(f'Average batch processing time node {rank}: {batch_time.avg:.3f} seconds') 
     print(f'Average dataset processing time node {rank}: {total_time.avg:.3f} seconds') 
+    print('---------------')
+    cleanup()
 
     return model 
      

@@ -34,7 +34,7 @@ def get_dataset(train:bool):
 
 def get_dataloader(batch_size, train:bool, is_dist:bool, rank=None, world_size = None):
     
-    print('Creating Data Loader') 
+    print(f'Creating Data Loader for node {rank}') 
     loader = None 
     
     dataset = get_dataset(train=train) 
@@ -45,7 +45,7 @@ def get_dataloader(batch_size, train:bool, is_dist:bool, rank=None, world_size =
     else: 
         loader = DataLoader(dataset, batch_size = batch_size, shuffle=True)  
 
-    print('Data Loader created!') 
+    print(f'Data Loader created for node {rank}!') 
     print('---------------')
 
     return loader 
