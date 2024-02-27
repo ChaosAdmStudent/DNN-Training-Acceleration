@@ -74,13 +74,6 @@ def ddp_train(rank, world_size, model, model_name, batch_size, num_epochs, lr, m
             batch_time.update(time.time() - batch_start) 
             batch_start = time.time() 
 
-            # if j % (total_batches//print_every_n) == 0: 
-            #     if not print_epoch: 
-            #         print(f'Epoch {i}')
-            #         print_epoch = True 
-
-            #     print(f'\t step {j}/{total_batches} loss: {l.item():.4f} acc: {100*(n_correct/n_samples):.2f}%')  
-
         total_time.update(time.time() - epoch_start) 
         epoch_start = time.time() 
 
