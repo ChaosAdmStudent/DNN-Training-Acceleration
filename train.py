@@ -103,7 +103,7 @@ def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool =
     assert torch.cuda.is_available(), "DNN Acceleration not possible on CPU"
     device = torch.device('cuda') 
 
-    train_loader = get_dataloader(batch_size=batch_size, train=True) 
+    train_loader = get_dataloader(batch_size=batch_size, train=True, is_dist=False) 
 
     loss = nn.CrossEntropyLoss() 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
@@ -124,7 +124,7 @@ def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool =
             if not model_parallel:
                 features = features.to(device) 
                 targets = targets.to(device)
-                
+
             y_pred = model(features) 
 
             if model_name == 'inception-v3': 
@@ -177,43 +177,4 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-if __name__ == '__main__':  
-    parser = argparse.ArgumentParser(description="Train a model.") 
-    parser.add_argument('--mode', type=str, default='none',help='options: dp, ddp, mp, none') 
-    args = parser.parse_args() 
-
-    # Training Parameters
-    batch_size = 20  
-    num_epochs = 1 
-    lr = 0.001 
-    momentum = 0.9 
-    print_every_n = 5 
-
-    model_name = 'inception-v3' 
-    model = get_pretrained_model(model_name)
-    
-    if torch.cuda.device_count() > 1:  
-        print(f'Using {torch.cuda.device_count()} GPUs') 
-        
-        # Using DataParallel  
-        if args.mode == 'dp':  
-            print('Using DataParallel')
-            model = nn.DataParallel(model)  
-            model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=10) 
-
-        # Using DistributedDataParallel 
-        if args.mode == 'ddp':
-            print('Using DistributedDataParallel\n')  
-            exec_start = time.time() 
-            world_size = torch.cuda.device_count()  
-            mp.spawn(
-                ddp_train, 
-                args = (world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n), 
-                nprocs = world_size, 
-                join=True
-            )    
-            print('---------------')
-            print(f'Total execution time: {time.time() - exec_start} seconds')
     
