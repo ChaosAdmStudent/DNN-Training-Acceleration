@@ -1,14 +1,9 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F  
 import torch.distributed as dist  
 from torch.nn.parallel import DistributedDataParallel as DDP 
-import torch.multiprocessing as mp 
-import numpy as np 
-import torchvision.models as models  
-from preprocess import get_dataloader , get_pretrained_model
-import time  
-import argparse  
+from preprocess import get_dataloader
+import time   
 import os 
 
 def setup(rank, world_size): 
