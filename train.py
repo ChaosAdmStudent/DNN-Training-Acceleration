@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F  
-import torch.distributed as dist 
+import torch.distributed as dist  
+from torch.nn.parallel import DistributedDataParallel as DPP 
 import torch.multiprocessing as mp 
 import numpy as np 
 import torchvision.models as models  
-from preprocess import get_data  
+from preprocess import get_dataloader  
 import time  
 import argparse  
 import os 
@@ -58,19 +59,81 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()   
 
-def ddp_train(rank, world_size, model): 
+def ddp_train(rank, world_size, model, batch_size, num_epochs, lr, momentum, print_every_n): 
     print(f'Running DDP on machine {rank}')  
-    setup(rank, world_size) 
+    setup(rank, world_size)  
+
+    # Get the dataloader  
+    train_loader = get_dataloader(batch_size, train=True, is_dist=True, rank=rank, world_size=world_size)
 
     # Move model to the GPU managed by the process 
     model.to(rank)   
 
-    # Train the model   
+    # Wrap model in DDP 
+    model = DPP(model, device_ids=[rank])
 
-def train(model, model_name:str, train_loader,print_every_n,num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
+    # Train the model     
+    device = torch.device('cuda') 
+    loss = nn.CrossEntropyLoss() 
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
+
+    total_batches = len(train_loader)
+    batch_time = AverageMeter()
+    total_time = AverageMeter()
+    n_correct = 0  
+    n_samples = 0 
+    
+    print('Starting training!') 
+    
+    epoch_start = time.time() 
+    for i in range(1,num_epochs+1):   
+        train_loader.sampler.set_epoch(i)
+        
+        batch_start = time.time() 
+        print_epoch = False 
+        for j, (features, targets) in enumerate(train_loader):  
+            features = features.to(device) 
+            targets = targets.to(device) 
+            y_pred = model(features) 
+
+            if model_name == 'inception-v3': 
+                y_pred, _ = y_pred
+
+            l = loss(y_pred,targets)  
+            _, predicted = torch.max(y_pred, 1) 
+            n_correct += (predicted == targets).sum().item()  
+            n_samples += targets.size(0)
+
+            l.backward() 
+            optimizer.step() 
+            optimizer.zero_grad() 
+
+            batch_time.update(time.time() - batch_start) 
+            batch_start = time.time() 
+
+            # if j % (total_batches//print_every_n) == 0: 
+            #     if not print_epoch: 
+            #         print(f'Epoch {i}')
+            #         print_epoch = True 
+
+            #     print(f'\t step {j}/{total_batches} loss: {l.item():.4f} acc: {100*(n_correct/n_samples):.2f}%')  
+
+        total_time.update(time.time() - epoch_start) 
+        epoch_start = time.time() 
+
+    cleanup()
+    print(f'Training completed by node: {rank}!') 
+    print(f'Average batch processing time node {rank}: {batch_time.avg:.3f} seconds') 
+    print(f'Average dataset processing time node {rank}: {total_time.avg:.3f} seconds') 
+
+    return model 
+     
+def train(model, model_name:str, batch_size ,print_every_n,num_epochs=5, lr = 0.001, momentum=0.9, model_save=False): 
     
     assert torch.cuda.is_available(), "DNN Acceleration not possible on CPU"
-    device = torch.device('cuda')
+    device = torch.device('cuda') 
+
+    train_loader = get_dataloader(batch_size=batch_size, train=True) 
 
     loss = nn.CrossEntropyLoss() 
     optimizer = torch.optim.SGD(params=model.parameters(), lr=lr, momentum=momentum)  
@@ -147,26 +210,35 @@ class AverageMeter(object):
 
 if __name__ == '__main__':  
     parser = argparse.ArgumentParser(description="Train a model.") 
-
     parser.add_argument('--mode', type=str, default='none',help='options: dp, ddp, mp, none') 
-
     args = parser.parse_args() 
 
-    batch_size = 20 
-    model_name = 'inception-v3' 
+    # Training Parameters
+    batch_size = 20  
+    num_epochs = 1 
+    lr = 0.001 
+    momentum = 0.9 
+    print_every_n = 5 
 
-    train_loader = get_data(batch_size=batch_size, train=True, download=True) 
+    model_name = 'inception-v3' 
     model = get_pretrained_model(model_name)
     
-    if torch.cuda.device_count() > 1:  
+    if torch.cuda.device_count() >= 1:  
         print(f'Using {torch.cuda.device_count()} GPUs') 
         
         # Using DataParallel  
         if args.mode == 'dp':  
             print('Using DataParallel')
-            model = nn.DataParallel(model) 
-    
-    model = train(model,model_name,train_loader, num_epochs=1, print_every_n=10)  
-    
+            model = nn.DataParallel(model)  
+            model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=10) 
 
-
+        # Using DistributedDataParallel 
+            print('Using DistributedDataParallel') 
+            world_size = torch.cuda.device_count()  
+            mp.spawn(
+                ddp_train, 
+                args = (world_size, model, batch_size, num_epochs, lr, momentum, print_every_n), 
+                n_procs = world_size, 
+                join=True
+            )
+    

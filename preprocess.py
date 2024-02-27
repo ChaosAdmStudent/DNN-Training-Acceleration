@@ -16,8 +16,7 @@ classes = ('plane', 'car' , 'bird',
     'frog', 'horse', 'ship', 'truck') 
 
 
-def get_dataset(batch_size:int, train:bool, download=True):  
-    device = torch.device('cuda')
+def get_dataset(train:bool):  
     transform = transforms.Compose([
         transforms.Resize(size=(299, 299)), 
         transforms.ToTensor(), 
@@ -28,21 +27,24 @@ def get_dataset(batch_size:int, train:bool, download=True):
 
     dataset = torchvision.datasets.CIFAR10(
         root= '../data', train = train,
-        download =download, transform = transform
+        download=True, transform = transform
     )
 
     return dataset 
 
-def get_dataloader(dataset, batch_size, is_dist:bool, rank=None, world_size = None):
+def get_dataloader(batch_size, train:bool, is_dist:bool, rank=None, world_size = None):
     
     print('Creating Data Loader') 
     loader = None 
+    
+    dataset = get_dataset(train=train) 
 
     if is_dist: 
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, 
                             sampler=DistributedSampler(dataset, num_replicas=world_size, rank=rank,drop_last=True)) 
     else: 
         loader = DataLoader(dataset, batch_size = batch_size, shuffle=True)  
+
     print('Data Loader created!') 
     print('---------------')
 
