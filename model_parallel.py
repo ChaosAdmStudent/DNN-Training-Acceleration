@@ -1,6 +1,6 @@
 import torch 
 import torch.nn as nn 
-from preprocess import get_pretrained_model
+from preprocess import get_pretrained_model, AverageMeter
 
 class ModelParallelVGG16_4GPU(nn.Module): 
     '''
@@ -9,13 +9,19 @@ class ModelParallelVGG16_4GPU(nn.Module):
     def __init__(self, debugging=False): 
         super(ModelParallelVGG16_4GPU, self).__init__() 
         model = get_pretrained_model('vgg16')   
-        self.overhead = 0  
+        self.overhead = AverageMeter()  
         self.debugging = debugging
 
         self.seq1 = model.features[:len(model.features)//2].to('cuda:0') 
         self.seq2 = model.features[len(model.features)//2:].to('cuda:1') 
         self.avgpool = model.avgpool.to('cuda:2') 
         self.classifier = model.classifier.to('cuda:3')  
+
+    def get_overhead(self): 
+        return self.overhead.avg
+    
+    def reset_overhead(self): 
+        self.overhead.reset() 
     
     def forward(self, x): 
         if self.debugging: 
@@ -38,6 +44,7 @@ class ModelParallelVGG16_4GPU(nn.Module):
     def forward_debug(self, x): 
 
         # Initialize CUDA Event Listeners to measure time taken for the data transfer to specific GPUs 
+        time_accumulator = 0.0
         start_time = torch.cuda.Event(enable_timing=True)
         end_time = torch.cuda.Event(enable_timing=True)  
 
@@ -53,7 +60,7 @@ class ModelParallelVGG16_4GPU(nn.Module):
         out = out.to('cuda:1') 
         end_time.record() 
         torch.cuda.synchronize()   
-        self.overhead += start_time.elapsed_time(end_time) 
+        time_accumulator += start_time.elapsed_time(end_time) 
         
         out = self.seq2(out)
 
@@ -61,7 +68,7 @@ class ModelParallelVGG16_4GPU(nn.Module):
         out = out.to('cuda:2') 
         end_time.record() 
         torch.cuda.synchronize()
-        self.overhead += start_time.elapsed_time(end_time)  
+        time_accumulator += start_time.elapsed_time(end_time)  
 
         out = self.avgpool(out) 
         
@@ -69,9 +76,11 @@ class ModelParallelVGG16_4GPU(nn.Module):
         out = out.to('cuda:3') 
         end_time.record()
         torch.cuda.synchronize()
-        self.overhead += start_time.elapsed_time(end_time)
+        time_accumulator += start_time.elapsed_time(end_time)
 
-        return self.overhead         
+        self.overhead.update(time_accumulator)
+
+        return None         
     
 
 class ModelParallelVGG16_3GPU(nn.Module): 
@@ -81,12 +90,18 @@ class ModelParallelVGG16_3GPU(nn.Module):
     def __init__(self, debugging=False): 
         super(ModelParallelVGG16_3GPU, self).__init__() 
         model = get_pretrained_model('vgg16')  
-        self.overhead = 0 
+        self.overhead = AverageMeter() 
         self.debugging = debugging
 
         self.seq1 = model.features.to('cuda:0') 
         self.avgpool = model.avgpool.to('cuda:1') 
-        self.classifier = model.classifier.to('cuda:2')  
+        self.classifier = model.classifier.to('cuda:2')   
+    
+    def get_overhead(self): 
+        return self.overhead.avg
+    
+    def reset_overhead(self): 
+        self.overhead.reset() 
 
     def forward(self, x): 
         if self.debugging: 
@@ -105,6 +120,7 @@ class ModelParallelVGG16_3GPU(nn.Module):
         return out   
     
     def forward_debug(self,x): 
+        time_accumulator = 0.0 
         start_time = torch.cuda.Event(enable_timing=True)
         end_time = torch.cuda.Event(enable_timing=True)  
 
@@ -115,7 +131,7 @@ class ModelParallelVGG16_3GPU(nn.Module):
         out = out.to('cuda:1') 
         end_time.record() 
         torch.cuda.synchronize()
-        self.overhead += start_time.elapsed_time(end_time)  
+        time_accumulator += start_time.elapsed_time(end_time)  
 
         out = self.avgpool(out) 
         
@@ -123,9 +139,10 @@ class ModelParallelVGG16_3GPU(nn.Module):
         out = out.to('cuda:2') 
         end_time.record()
         torch.cuda.synchronize()
-        self.overhead += start_time.elapsed_time(end_time)
+        time_accumulator += start_time.elapsed_time(end_time)
+        self.overhead.update(time_accumulator) 
 
-        return self.overhead    
+        return None 
 
 
 class ModelParallelVGG16_2GPU(nn.Module): 
@@ -135,12 +152,18 @@ class ModelParallelVGG16_2GPU(nn.Module):
     def __init__(self, debugging=False): 
         super(ModelParallelVGG16_2GPU, self).__init__() 
         model = get_pretrained_model('vgg16')   
-        self.overhead = 0 
+        self.overhead = AverageMeter()  
         self.debugging = debugging 
 
         self.seq1 = model.features.to('cuda:0') 
         self.avgpool = model.avgpool.to('cuda:1') 
-        self.classifier = model.classifier.to('cuda:1') 
+        self.classifier = model.classifier.to('cuda:1')  
+
+    def get_overhead(self): 
+        return self.overhead.avg
+    
+    def reset_overhead(self): 
+        self.overhead.reset() 
 
     def forward(self, x): 
         if self.debugging: 
@@ -158,6 +181,7 @@ class ModelParallelVGG16_2GPU(nn.Module):
         return out  
 
     def forward_debug(self,x): 
+        time_accumulator = 0.0
         start_time = torch.cuda.Event(enable_timing=True)
         end_time = torch.cuda.Event(enable_timing=True)  
 
@@ -168,6 +192,7 @@ class ModelParallelVGG16_2GPU(nn.Module):
         out = out.to('cuda:1') 
         end_time.record() 
         torch.cuda.synchronize()
-        self.overhead += start_time.elapsed_time(end_time)  
+        time_accumulator += start_time.elapsed_time(end_time)   
+        self.overhead.update(time_accumulator)
 
-        return self.overhead  
+        return None
