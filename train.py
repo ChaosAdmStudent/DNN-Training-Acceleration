@@ -111,7 +111,6 @@ def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool =
         for j, (features, targets) in enumerate(train_loader):   
             if not model_parallel:
                 features = features.to(device) 
-                targets = targets.to(device)
 
             y_pred = model(features) 
 
@@ -123,6 +122,7 @@ def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool =
             n_correct += (predicted == targets).sum().item()  
             n_samples += targets.size(0)
 
+            targets = targets.to(y_pred.device)
             l.backward() 
             optimizer.step() 
             optimizer.zero_grad() 
