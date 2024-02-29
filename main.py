@@ -66,7 +66,7 @@ def get_comms_time_model_parallel():
     plt.title('Model Parallelism Communication Time')
     plt.legend() 
     plt.show() 
-    plt.savefig('../figures/model_parallel.png', bbox_inches='tight')
+    plt.savefig('../model_parallel.png', bbox_inches='tight')
 
 
 if __name__ == '__main__': 
