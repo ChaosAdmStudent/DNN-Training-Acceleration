@@ -14,7 +14,8 @@ class ModelParallelVGG16_4GPU(nn.Module):
 
         self.seq1 = model.features[:len(model.features)//2].to('cuda:0') 
         self.seq2 = model.features[len(model.features)//2:].to('cuda:1') 
-        self.avgpool = model.avgpool.to('cuda:2') 
+        self.avgpool = model.avgpool.to('cuda:2')  
+        self.flatten = nn.Flatten().to('cuda:2')
         self.classifier = model.classifier.to('cuda:3')  
 
     def get_overhead(self): 
@@ -36,6 +37,7 @@ class ModelParallelVGG16_4GPU(nn.Module):
         out = self.seq2(out)
         out = out.to('cuda:2') 
         out = self.avgpool(out) 
+        out = self.flatten(out) 
         out = out.to('cuda:3') 
         out = self.classifier(out) 
 
@@ -71,6 +73,7 @@ class ModelParallelVGG16_4GPU(nn.Module):
         time_accumulator += start_time.elapsed_time(end_time)  
 
         out = self.avgpool(out) 
+        out = self.flatten(out) 
         
         start_time.record()
         out = out.to('cuda:3') 
@@ -94,7 +97,8 @@ class ModelParallelVGG16_3GPU(nn.Module):
         self.debugging = debugging
 
         self.seq1 = model.features.to('cuda:0') 
-        self.avgpool = model.avgpool.to('cuda:1') 
+        self.avgpool = model.avgpool.to('cuda:1')  
+        self.flatten = nn.Flatten().to('cuda:1')
         self.classifier = model.classifier.to('cuda:2')   
     
     def get_overhead(self): 
@@ -114,6 +118,7 @@ class ModelParallelVGG16_3GPU(nn.Module):
         out = self.seq1(x)  
         out = out.to('cuda:1') 
         out = self.avgpool(out) 
+        out = self.flatten(out) 
         out = out.to('cuda:2') 
         out = self.classifier(out) 
 
@@ -134,6 +139,7 @@ class ModelParallelVGG16_3GPU(nn.Module):
         time_accumulator += start_time.elapsed_time(end_time)  
 
         out = self.avgpool(out) 
+        out = self.flatten(out) 
         
         start_time.record()
         out = out.to('cuda:2') 
@@ -156,7 +162,8 @@ class ModelParallelVGG16_2GPU(nn.Module):
         self.debugging = debugging 
 
         self.seq1 = model.features.to('cuda:0') 
-        self.avgpool = model.avgpool.to('cuda:1') 
+        self.avgpool = model.avgpool.to('cuda:1')  
+        self.flatten = nn.Flatten().to('cuda:1')
         self.classifier = model.classifier.to('cuda:1')  
 
     def get_overhead(self): 
@@ -177,6 +184,7 @@ class ModelParallelVGG16_2GPU(nn.Module):
         out = self.seq1(x)  
         out = out.to('cuda:1') 
         out = self.avgpool(out) 
+        out = self.flatten(out)
         out = self.classifier(out) 
         return out  
 

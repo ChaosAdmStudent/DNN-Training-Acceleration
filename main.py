@@ -83,49 +83,51 @@ if __name__ == '__main__':
     print_every_n = 5 
 
     model_name = 'inception-v3' 
-    model = get_pretrained_model(model_name)
+    model = get_pretrained_model(model_name) 
 
-    if torch.cuda.device_count() > 1:  
-        print(f'Using {torch.cuda.device_count()} GPUs') 
-        
-        # Using DataParallel   
-        if args.mode == 'dp':  
-            print('Using DataParallel\n') 
-            exec_start = time.time() 
-            model = nn.DataParallel(model)  
-            model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=print_every_n)  
-            print('--------------') 
-            print(f'Total DataParallel execution time: {time.time() - exec_start} seconds')
-
-        # Using DistributedDataParallel 
-        elif args.mode == 'ddp':
-            print('Using DistributedDataParallel\n')  
-            exec_start = time.time() 
-            world_size = torch.cuda.device_count()  
-            mp.spawn(
-                ddp_train, 
-                args = (world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n), 
-                nprocs = world_size, 
-                join=True
-            )    
-            print('---------------')
-            print(f'Total DDP execution time: {time.time() - exec_start} seconds')  
-        
-        # Model Parallelism 
-        elif args.mode == 'mp-debug': 
-            get_comms_time_model_parallel()  
-            
-        elif args.mode == 'mp-train': 
-            model = ModelParallelVGG16_4GPU(debugging=False) 
-            exec_start = time.time() 
-            model = train(model, 'vgg16', batch_size=32,print_every_n=print_every_n, model_parallel=True, num_epochs=1) 
-            print()
-            print('--------------') 
-            print(f'Total execution time without GPU acceleration: {time.time() - exec_start}')
-    
-    else: 
+    if args.mode == 'none': 
         print('Training without GPU acceleration!\n')
         exec_start = time.time() 
         model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=print_every_n) 
         print('--------------') 
-        print(f'Total execution time without GPU acceleration: {time.time() - exec_start}')
+        print(f'Total execution time without GPU acceleration: {time.time() - exec_start}') 
+
+    else: 
+        if torch.cuda.device_count() > 1:  
+            print(f'Using {torch.cuda.device_count()} GPUs') 
+            
+            # Using DataParallel   
+            if args.mode == 'dp':  
+                print('Using DataParallel\n') 
+                exec_start = time.time() 
+                model = nn.DataParallel(model)  
+                model = train(model,model_name,batch_size=batch_size, num_epochs=1, print_every_n=print_every_n)  
+                print('--------------') 
+                print(f'Total DataParallel execution time: {time.time() - exec_start} seconds')
+
+            # Using DistributedDataParallel 
+            elif args.mode == 'ddp':
+                print('Using DistributedDataParallel\n')  
+                exec_start = time.time() 
+                world_size = torch.cuda.device_count()  
+                mp.spawn(
+                    ddp_train, 
+                    args = (world_size, model, model_name, batch_size, num_epochs, lr, momentum, print_every_n), 
+                    nprocs = world_size, 
+                    join=True
+                )    
+                print('---------------')
+                print(f'Total DDP execution time: {time.time() - exec_start} seconds')  
+            
+            # Model Parallelism 
+            elif args.mode == 'mp-debug': 
+                get_comms_time_model_parallel()  
+                
+            elif args.mode == 'mp-train': 
+                model = ModelParallelVGG16_4GPU(debugging=False) 
+                exec_start = time.time() 
+                model = train(model, 'vgg16', batch_size=32,print_every_n=print_every_n, model_parallel=True, num_epochs=1) 
+                print()
+                print('--------------') 
+                print(f'Total execution time without GPU acceleration: {time.time() - exec_start}')
+    
