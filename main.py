@@ -129,5 +129,5 @@ if __name__ == '__main__':
                 model = train(model, 'vgg16', batch_size=32,print_every_n=print_every_n, model_parallel=True, num_epochs=1) 
                 print()
                 print('--------------') 
-                print(f'Total execution time without GPU acceleration: {time.time() - exec_start}')
+                print(f'Total execution time Model Parallelism: {time.time() - exec_start}')
     

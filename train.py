@@ -117,12 +117,12 @@ def train(model, model_name:str, batch_size,print_every_n, model_parallel:bool =
             if model_name == 'inception-v3': 
                 y_pred, _ = y_pred
 
+            targets = targets.to(y_pred.device)
             l = loss(y_pred,targets)  
             _, predicted = torch.max(y_pred, 1) 
             n_correct += (predicted == targets).sum().item()  
             n_samples += targets.size(0)
 
-            targets = targets.to(y_pred.device)
             l.backward() 
             optimizer.step() 
             optimizer.zero_grad() 
